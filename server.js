@@ -41,13 +41,24 @@ function filterByQuery(query, animalsArray) {
     return filteredResults;
 }
 
-//use filterByQuery method to set specific parameters
-app.get('/api/animals', (req, res) => {
-    let results = animals;
-    if (req.query){
-        results = filterByQuery(req.query, results);
+function findById(id, animalsArray) {
+    const result = animalsArray.filter(animal => animal.id === id)[0];
+    return result;
+}
+
+//use filterByQuery method to set specific parameters to get one specific obj
+//use findById() allows for more routes
+app.get('/api/animals/:id', (req, res) => {
+    const result = findById(req.params.id,animals);
+    // let results = animals;
+    // if (req.query){
+    //     results = filterByQuery(req.query, results);
+    // }
+    if (result) {
+        res.json(result);
+    } else {
+        res.send(404);
     }
-    res.json(results);
 });
 
 app.listen(PORT, () => {
