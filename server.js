@@ -1,56 +1,45 @@
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
-const PORT = process.env.PORT || 3001;
-const app = express();
 const { animals } = require('./data/animals')
 
-function filterByQuery(query, animalsArray) {
-    let personalityTraitsArray = [];
-    //note that we save the animalsArray as filteredResults here:
-    let filteredResults = animalsArray;
-    if (query.personalityTraits) {
-        //save personalityTraits as a dedicated array
-        //if personalityTraits is a string, place it into a new array and save
-        if (typeof query.personalityTraits === 'string') {
-            personalityTraitsArray = [query.personalityTraits];
-        } else {
-            personalityTraitsArray = query.personalityTraits;
-        }
-        //Loop thru each trait in the personalityTraitsArray
-        personalityTraitsArray.forEach(trait => {
-            // Check the trait against each animal in the filteredResults array.
-            // Remember, it is initially a copy of the animalsArray,
-            // but here we're updating it for each trait in the .forEach() loop.
-            // For each trait being targeted by the filter, the filteredResults
-            // array will then contain only the entries that contain the trait,
-            // so at the end we'll have an array of animals that have every one 
-            // of the traits when the .forEach() loop is finished.
-            filteredResults = filteredResults.filter(
-                animal => animal.personalityTraits.indexOf(trait) !== -1
-            );
-        });
-    }
-    if (query.diet) {
-        filteredResults = filteredResults.filter(animal => animal.diet === query.diet);
-    }
-    if(query.species) {
-        filteredResults = filteredResults.filter(animal => animal.species === query.species);
-    }
-    if (query.name) {
-        filteredResults = filteredResults.filter(animal => animal.name === query.name);
-    }
-    return filteredResults;
-}
+//will read the index.js files of each indicated directory
+const apiRoutes = require('./routes/apiRoutes');
+const htmlRoutes = require('./routes/htmlRoutes');
 
-//use filterByQuery method to set specific parameters
-app.get('/api/animals', (req, res) => {
-    let results = animals;
-    if (req.query){
-        results = filterByQuery(req.query, results);
-    }
-    res.json(results);
+const PORT = process.env.PORT || 3001;
+const app = express();
+
+//static middleware must be used to load corresponding files properly
+app.use(express.static('public'));
+//parse incoming string or array data
+app.use(express.urlencoded({extended: true}));
+//parse incoming JSON data
+app.use(express.json());
+
+//tells the server that when clt navigates to <ourhost>/api, app will use the router from apiRoutes
+app.use('/api', apiRoutes);
+//with / as endpt, router will serve back the html routes
+app.use('/', htmlRoutes);
+
+//1 job: respond with an HTML pg to display in the browser
+app.get('/', (req, res) => {
+    //tells where to find the file we want our server to read and send back to clt
+    res.sendFile(path.join(__dirname, './public/index.html'));
+});
+
+app.get('/animals', (req, res) => {
+    res.sendFile(path.join(__dirname, './public/animals.html'));
+});
+
+app.get('/zookeepers', (req, res) => {
+    res.sendFile(path.join(__dirname, './public/zookeepers.html'));
+});
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, './public/index.html'));
 });
 
 app.listen(PORT, () => {
     console.log(`API server now on port ${PORT}!`);
 });
-
