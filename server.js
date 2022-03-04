@@ -1,7 +1,18 @@
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
+const { animals } = require('./data/animals')
+
 const PORT = process.env.PORT || 3001;
 const app = express();
-const { animals } = require('./data/animals')
+
+//static middleware must be used to load corresponding files properly
+app.use(express.static('public'));
+//parse incoming string or array data
+app.use(express.urlencoded({extended: true}));
+//parse incoming JSON data
+app.use(express.json());
+
 
 function filterByQuery(query, animalsArray) {
     let personalityTraitsArray = [];
@@ -46,8 +57,49 @@ function findById(id, animalsArray) {
     return result;
 }
 
+function createNewAnimal(body, animalsArray) {
+    const animal = body;
+    //our fxn's main code will go in the 'body'!
+    animalsArray.push(animal);
+    //use synch version bc it's a smaller file and don't need cb fxn
+    fs.writeFileSync(
+       path.join(__dirname, './data/animals.json'),
+       JSON.stringify({animals: animalsArray}, null, 2)
+    );
+    return animal;
+    //return finished code to post route for response
+}
+
+//validation checks on animal parameter
+//animal parameter is coming from req.body
+function validateAnimal(animal) {
+    if (!animal.name || typeof animal.name !== 'string') {
+        return false;
+    }
+    if (!animal.species || typeof animal.species !== 'string') {
+        return false;
+    }
+    if (!animal.diet || typeof animal.diet !=='string') {
+        return false;
+    }
+    if (!animal.personalityTraits || !Array.isArray(animal.personalityTraits)) {
+        return false;
+    }
+    return true;
+}
+
 //use filterByQuery method to set specific parameters to get one specific obj
+app.get('/api/animals', (req, res) => {
+    // get all animals
+   let results = animals;
+   if (req.query) {
+       results = filterByQuery(req.query, results);
+   }
+    res.json(results);
+  });
+
 //use findById() allows for more routes
+//this id route only works if all id values are unique
 app.get('/api/animals/:id', (req, res) => {
     const result = findById(req.params.id,animals);
     // let results = animals;
@@ -61,7 +113,39 @@ app.get('/api/animals/:id', (req, res) => {
     }
 });
 
+app.post('/api/animals', (req, res) => {
+    //req.body = property where our incoming content will be
+    //set id based on what the next index of the array will be
+    req.body.id = animals.length.toString();
+
+    //if any data in req.body is incorrect, send 400 error back
+    if (!validateAnimal(req.body)) {
+        res.status(400).send('The animal is not properly formatted.');
+    } else {
+        //add animal to json file and animals array in this fxn
+        const animal = createNewAnimal(req.body, animals);
+        res.json(animal);
+    }
+});
+
+//1 job: respond with an HTML pg to display in the browser
+app.get('/', (req, res) => {
+    //tells where to find the file we want our server to read and send back to clt
+    res.sendFile(path.join(__dirname, './public/index.html'));
+});
+
+app.get('/animals', (req, res) => {
+    res.sendFile(path.join(__dirname, './public/animals.html'));
+});
+
+app.get('/zookeepers', (req, res) => {
+    res.sendFile(path.join(__dirname, './public/zookeepers.html'));
+});
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, './public/index.html'));
+});
+
 app.listen(PORT, () => {
     console.log(`API server now on port ${PORT}!`);
 });
-
