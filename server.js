@@ -1,7 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const { animals } = require('./data/animals')
+const { animals } = require('./data/animals');
+
+//will read the index.js files of each indicated directory
+const apiRoutes = require('./routes/apiRoutes');
+const htmlRoutes = require('./routes/htmlRoutes');
+
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -13,120 +18,10 @@ app.use(express.urlencoded({extended: true}));
 //parse incoming JSON data
 app.use(express.json());
 
-
-function filterByQuery(query, animalsArray) {
-    let personalityTraitsArray = [];
-    //note that we save the animalsArray as filteredResults here:
-    let filteredResults = animalsArray;
-    if (query.personalityTraits) {
-        //save personalityTraits as a dedicated array
-        //if personalityTraits is a string, place it into a new array and save
-        if (typeof query.personalityTraits === 'string') {
-            personalityTraitsArray = [query.personalityTraits];
-        } else {
-            personalityTraitsArray = query.personalityTraits;
-        }
-        //Loop thru each trait in the personalityTraitsArray
-        personalityTraitsArray.forEach(trait => {
-            // Check the trait against each animal in the filteredResults array.
-            // Remember, it is initially a copy of the animalsArray,
-            // but here we're updating it for each trait in the .forEach() loop.
-            // For each trait being targeted by the filter, the filteredResults
-            // array will then contain only the entries that contain the trait,
-            // so at the end we'll have an array of animals that have every one 
-            // of the traits when the .forEach() loop is finished.
-            filteredResults = filteredResults.filter(
-                animal => animal.personalityTraits.indexOf(trait) !== -1
-            );
-        });
-    }
-    if (query.diet) {
-        filteredResults = filteredResults.filter(animal => animal.diet === query.diet);
-    }
-    if(query.species) {
-        filteredResults = filteredResults.filter(animal => animal.species === query.species);
-    }
-    if (query.name) {
-        filteredResults = filteredResults.filter(animal => animal.name === query.name);
-    }
-    return filteredResults;
-}
-
-function findById(id, animalsArray) {
-    const result = animalsArray.filter(animal => animal.id === id)[0];
-    return result;
-}
-
-function createNewAnimal(body, animalsArray) {
-    const animal = body;
-    //our fxn's main code will go in the 'body'!
-    animalsArray.push(animal);
-    //use synch version bc it's a smaller file and don't need cb fxn
-    fs.writeFileSync(
-       path.join(__dirname, './data/animals.json'),
-       JSON.stringify({animals: animalsArray}, null, 2)
-    );
-    return animal;
-    //return finished code to post route for response
-}
-
-//validation checks on animal parameter
-//animal parameter is coming from req.body
-function validateAnimal(animal) {
-    if (!animal.name || typeof animal.name !== 'string') {
-        return false;
-    }
-    if (!animal.species || typeof animal.species !== 'string') {
-        return false;
-    }
-    if (!animal.diet || typeof animal.diet !=='string') {
-        return false;
-    }
-    if (!animal.personalityTraits || !Array.isArray(animal.personalityTraits)) {
-        return false;
-    }
-    return true;
-}
-
-//use filterByQuery method to set specific parameters to get one specific obj
-app.get('/api/animals', (req, res) => {
-    // get all animals
-   let results = animals;
-   if (req.query) {
-       results = filterByQuery(req.query, results);
-   }
-    res.json(results);
-  });
-
-//use findById() allows for more routes
-//this id route only works if all id values are unique
-app.get('/api/animals/:id', (req, res) => {
-    const result = findById(req.params.id,animals);
-    // let results = animals;
-    // if (req.query){
-    //     results = filterByQuery(req.query, results);
-    // }
-    if (result) {
-        res.json(result);
-    } else {
-        res.send(404);
-    }
-});
-
-app.post('/api/animals', (req, res) => {
-    //req.body = property where our incoming content will be
-    //set id based on what the next index of the array will be
-    req.body.id = animals.length.toString();
-
-    //if any data in req.body is incorrect, send 400 error back
-    if (!validateAnimal(req.body)) {
-        res.status(400).send('The animal is not properly formatted.');
-    } else {
-        //add animal to json file and animals array in this fxn
-        const animal = createNewAnimal(req.body, animals);
-        res.json(animal);
-    }
-});
+//tells the server that when clt navigates to <ourhost>/api, app will use the router from apiRoutes
+app.use('/api', apiRoutes);
+//with / as endpt, router will serve back the html routes
+app.use('/', htmlRoutes);
 
 //1 job: respond with an HTML pg to display in the browser
 app.get('/', (req, res) => {
